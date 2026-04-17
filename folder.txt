@@ -1,0 +1,41 @@
+backend/
+│
+├── app/
+│   ├── main.py
+│   │
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   ├── security.py
+│   │   └── utils.py
+│   │
+│   ├── models/
+│   │   └── models.py
+│   │
+│   ├── schemas/
+│   │   ├── auth.py
+│   │   ├── customer.py
+│   │   ├── purchase.py
+│   │   └── dashboard.py
+│   │
+│   ├── api/
+│   │   ├── deps.py
+│   │   ├── auth.py
+│   │   ├── dashboard.py
+│   │   ├── customers.py
+│   │   ├── purchases.py
+│   │   ├── invoices.py
+│   │   └── reports.py
+│   │
+│   ├── services/
+│   │   ├── billing_service.py
+│   │   ├── dashboard_service.py
+│   │   └── invoice_service.py
+│   │
+│   └── constants/
+│       └── enums.py
+│
+├── alembic/
+├── requirements.txt
+├── .env
+└── README.md
