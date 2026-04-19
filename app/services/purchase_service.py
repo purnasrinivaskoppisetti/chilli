@@ -6,7 +6,7 @@ from app.models.models import Purchase, PurchaseBag, Customer, Payment, PaymentS
 class PurchaseService:
 
     # -----------------------------
-    # PREVIEW
+    # PREVIEW (FAST)
     # -----------------------------
     @staticmethod
     async def calculate_preview(payload):
@@ -19,14 +19,12 @@ class PurchaseService:
 
         for bag in payload.bags:
 
-            if bag.deduction > bag.gross_weight:
-                raise ValueError(f"Deduction cannot exceed weight for bag {bag.bag_number}")
-
-            if bag.gross_weight < 0 or bag.deduction < 0:
-                raise ValueError("Invalid weight/deduction")
-
             gross = Decimal(bag.gross_weight)
             deduction = Decimal(bag.deduction)
+
+            if deduction > gross:
+                raise ValueError(f"Invalid deduction for bag {bag.bag_number}")
+
             net = gross - deduction
 
             total_gross += gross
@@ -43,6 +41,8 @@ class PurchaseService:
         total_amount = total_net * Decimal(payload.price_per_kg)
 
         return {
+            "crop": payload.crop,
+            "type": payload.type,   # ✅ INCLUDED
             "bags": bags_preview,
             "totals": {
                 "total_bags": len(payload.bags),
@@ -55,14 +55,12 @@ class PurchaseService:
         }
 
     # -----------------------------
-    # CREATE PURCHASE
+    # CREATE PURCHASE (OPTIMIZED)
     # -----------------------------
     @staticmethod
     async def create_purchase(payload, db, user_id):
 
-        # -------------------------
-        # 1. Customer
-        # -------------------------
+        # CUSTOMER (single query)
         result = await db.execute(
             select(Customer).where(Customer.mobile == payload.mobile)
         )
@@ -76,13 +74,12 @@ class PurchaseService:
             db.add(customer)
             await db.flush()
 
-        # -------------------------
-        # 2. Purchase
-        # -------------------------
+        # PURCHASE
         purchase = Purchase(
             customer_id=customer.id,
             user_id=user_id,
             crop=payload.crop,
+            type=payload.type,   # ✅ IMPORTANT
             price_per_kg=payload.price_per_kg,
             purchase_date=payload.purchase_date,
             notes=payload.notes
@@ -91,16 +88,13 @@ class PurchaseService:
         db.add(purchase)
         await db.flush()
 
-        # -------------------------
-        # 3. Bags + CALCULATE TOTALS (IMPORTANT FIX)
-        # -------------------------
+        # CALCULATIONS (NO EXTRA CALLS)
         total_bags = 0
         total_gross = Decimal("0")
         total_deduction = Decimal("0")
         total_net = Decimal("0")
 
         for bag in payload.bags:
-
             gross = Decimal(bag.gross_weight)
             deduction = Decimal(bag.deduction)
 
@@ -122,11 +116,6 @@ class PurchaseService:
                 net_weight=net
             ))
 
-        await db.flush()
-
-        # -------------------------
-        # 4. SET TOTALS (NO recalculate_totals)
-        # -------------------------
         purchase.total_bags = total_bags
         purchase.gross_weight = total_gross
         purchase.total_deduction = total_deduction
@@ -136,11 +125,8 @@ class PurchaseService:
         total_amount = purchase.total_amount
         paid_amount = Decimal("0")
 
-        # -------------------------
-        # 5. PAYMENT
-        # -------------------------
+        # PAYMENT
         if payload.payment and payload.payment.amount_paid > 0:
-
             paid_amount = Decimal(payload.payment.amount_paid)
 
             db.add(Payment(
@@ -150,9 +136,7 @@ class PurchaseService:
                 remarks=payload.payment.remarks
             ))
 
-        # -------------------------
-        # 6. STATUS
-        # -------------------------
+        # STATUS
         if paid_amount == 0:
             purchase.payment_status = PaymentStatus.PENDING
         elif paid_amount < total_amount:
@@ -160,19 +144,15 @@ class PurchaseService:
         else:
             purchase.payment_status = PaymentStatus.PAID
 
-        # -------------------------
-        # 7. INVOICE
-        # -------------------------
+        # INVOICE
         purchase.invoice_number = f"INV-{purchase.purchase_date.year}-{purchase.id:05d}"
 
         await db.commit()
         await db.refresh(purchase)
 
-        # -------------------------
-        # 8. RESPONSE
-        # -------------------------
         return {
             "invoice_number": purchase.invoice_number,
+            "type": purchase.type,   # ✅ RETURNED
             "total_amount": float(total_amount),
             "paid_amount": float(paid_amount),
             "pending_amount": float(total_amount - paid_amount),

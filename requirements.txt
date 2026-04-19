@@ -9,6 +9,10 @@ colorama==0.4.6
 cryptography==46.0.7
 dnspython==2.8.0
 ecdsa==0.19.2
+
+argon2-cffi
+
+
 email-validator==2.3.0
 fastapi==0.136.0
 asyncpg==0.31.0

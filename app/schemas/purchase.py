@@ -4,8 +4,6 @@ import enum
 from datetime import date
 
 
-
-
 class CropType(str, enum.Enum):
     MIRCHI = "mirchi"
     COTTON = "cotton"
@@ -27,8 +25,9 @@ class PurchaseCreateSchema(BaseModel):
     customer_name: str
     mobile: str
     crop: CropType
+    type: Optional[str] = None   # ✅ dynamic field
     price_per_kg: float
-    purchase_date: date 
+    purchase_date: date
     bags: List[BagSchema]
     payment: Optional[PaymentSchema] = None
     notes: Optional[str] = None

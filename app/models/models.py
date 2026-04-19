@@ -133,7 +133,7 @@ class Purchase(Base):
         Enum(CropType, native_enum=False),
         nullable=False
     )
-
+    type = Column(String(100), nullable=True)
     purchase_date = Column(Date, default=date.today)
     price_per_kg = Column(Numeric(10, 2), nullable=False)
 

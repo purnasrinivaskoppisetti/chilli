@@ -16,7 +16,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 # 🔐 Create JWT token
-def create_access_token(data: dict, expires_minutes: int = 60):
+def create_access_token(data: dict, expires_minutes: int = 60000):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
     to_encode.update({"exp": expire})

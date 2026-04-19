@@ -1,6 +1,8 @@
 from datetime import date, timedelta
 from sqlalchemy import select, func
-from app.models.models import Purchase, CropType, PaymentStatus
+from sqlalchemy.orm import selectinload
+
+from app.models.models import Purchase, CropType, PaymentStatus, Customer
 
 
 class DashboardService:
@@ -39,7 +41,7 @@ class DashboardService:
         pending_count = pending_result.scalar() or 0
 
         # -----------------------------
-        # 3. WEEKLY DATA (COTTON + MIRCHI)
+        # 3. WEEKLY DATA
         # -----------------------------
         weekly_data = []
 
@@ -48,7 +50,8 @@ class DashboardService:
                 select(
                     Purchase.crop,
                     func.sum(Purchase.net_weight)
-                ).where(Purchase.purchase_date == day)
+                )
+                .where(Purchase.purchase_date == day)
                 .group_by(Purchase.crop)
             )
 
@@ -61,22 +64,31 @@ class DashboardService:
             })
 
         # -----------------------------
-        # 4. RECENT TRANSACTIONS
+        # 4. RECENT TRANSACTIONS (OPTIMIZED)
         # -----------------------------
         recent_result = await db.execute(
-            select(Purchase)
+            select(Purchase, Customer.name)
+            .join(Customer, Purchase.customer_id == Customer.id)
             .order_by(Purchase.created_at.desc())
             .limit(5)
         )
 
         recent = []
-        for p in recent_result.scalars():
+
+        for purchase, customer_name in recent_result:
             recent.append({
-                "customer_id": p.customer_id,
-                "invoice": p.invoice_number,
-                "amount": float(p.total_amount),
-                "status": p.payment_status,
-                "date": str(p.purchase_date)
+                "customer_name": customer_name,   # ✅ NAME
+                "invoice": purchase.invoice_number,
+                "amount": float(purchase.total_amount),
+                "status": purchase.payment_status.value,
+                "date": str(purchase.purchase_date),
+
+                # ✅ NEW (important for your UI)
+                "crop": purchase.crop.value,
+                "type": purchase.type,   # Guntur, Byadgi etc
+
+                # ✅ formatted label for frontend
+                "label": f"{purchase.crop.value.capitalize()} - {purchase.type or ''}"
             })
 
         # -----------------------------
