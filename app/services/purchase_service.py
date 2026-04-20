@@ -1,6 +1,9 @@
 from decimal import Decimal
 from sqlalchemy import select
 from app.models.models import Purchase, PurchaseBag, Customer, Payment, PaymentStatus
+from decimal import Decimal
+from sqlalchemy import select
+from app.models.models import Purchase, Payment, PaymentStatus
 
 
 class PurchaseService:
@@ -156,5 +159,65 @@ class PurchaseService:
             "total_amount": float(total_amount),
             "paid_amount": float(paid_amount),
             "pending_amount": float(total_amount - paid_amount),
+            "status": purchase.payment_status.value
+        }
+    
+
+
+
+
+
+    @staticmethod
+    async def add_payment(purchase_id, payload, db):
+
+        result = await db.execute(
+            select(Purchase).where(Purchase.id == purchase_id)
+        )
+        purchase = result.scalar_one_or_none()
+
+        if not purchase:
+            raise ValueError("Purchase not found")
+
+        # -------------------------
+        # ADD NEW PAYMENT
+        # -------------------------
+        new_payment = Payment(
+            purchase_id=purchase.id,
+            amount_paid=Decimal(payload.amount_paid),
+            payment_mode=payload.payment_mode,
+            remarks=payload.remarks
+        )
+
+        db.add(new_payment)
+        await db.flush()
+
+        # -------------------------
+        # RECALCULATE TOTAL PAID
+        # -------------------------
+        await db.refresh(purchase)
+
+        total_paid = sum([p.amount_paid for p in purchase.payments])
+        total_amount = purchase.total_amount
+
+        pending_amount = total_amount - total_paid
+
+        # -------------------------
+        # UPDATE STATUS
+        # -------------------------
+        if total_paid == 0:
+            purchase.payment_status = PaymentStatus.PENDING
+        elif total_paid < total_amount:
+            purchase.payment_status = PaymentStatus.PARTIAL
+        else:
+            purchase.payment_status = PaymentStatus.PAID
+
+        await db.commit()
+        await db.refresh(purchase)
+
+        return {
+            "purchase_id": purchase.id,
+            "total_amount": float(total_amount),
+            "paid_amount": float(total_paid),
+            "pending_amount": float(pending_amount),
             "status": purchase.payment_status.value
         }

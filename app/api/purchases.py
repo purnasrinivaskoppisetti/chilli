@@ -254,3 +254,21 @@ async def get_purchase_invoice(
             "notes": purchase.notes
         }
     }
+
+
+from app.schemas.payment import PaymentCreateSchema
+
+@router.post("/{purchase_id}/payment")
+async def add_payment(
+    purchase_id: int,
+    payload: PaymentCreateSchema,   # ✅ THIS IS KEY
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    result = await PurchaseService.add_payment(purchase_id, payload, db)
+
+    return {
+        "success": True,
+        "message": "Payment updated successfully",
+        "data": result
+    }
