@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, desc
 from sqlalchemy.orm import selectinload
-
+from app.schemas.payment import PaymentCreateSchema
 from app.core.database import get_db
 from app.schemas.purchase import PurchaseCreateSchema
 from app.services.purchase_service import PurchaseService
