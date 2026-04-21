@@ -4,7 +4,7 @@ from app.models.models import Purchase, PurchaseBag, Customer, Payment, PaymentS
 from decimal import Decimal
 from sqlalchemy import select
 from app.models.models import Purchase, Payment, PaymentStatus
-
+from sqlalchemy.orm import selectinload
 
 class PurchaseService:
 
@@ -192,19 +192,24 @@ class PurchaseService:
 
 
 
+    
+
     @staticmethod
     async def add_payment(purchase_id, payload, db):
 
         result = await db.execute(
-            select(Purchase).where(Purchase.id == purchase_id)
+            select(Purchase)
+            .where(Purchase.id == purchase_id)
+            .options(selectinload(Purchase.payments))  # ✅ FIX
         )
+
         purchase = result.scalar_one_or_none()
 
         if not purchase:
             raise ValueError("Purchase not found")
 
         # -------------------------
-        # ADD NEW PAYMENT
+        # ADD PAYMENT
         # -------------------------
         new_payment = Payment(
             purchase_id=purchase.id,
@@ -217,17 +222,15 @@ class PurchaseService:
         await db.flush()
 
         # -------------------------
-        # RECALCULATE TOTAL PAID
+        # RECALCULATE TOTAL
         # -------------------------
-        await db.refresh(purchase)
+        total_paid = sum([p.amount_paid for p in purchase.payments]) + Decimal(payload.amount_paid)
 
-        total_paid = sum([p.amount_paid for p in purchase.payments])
         total_amount = purchase.total_amount
-
         pending_amount = total_amount - total_paid
 
         # -------------------------
-        # UPDATE STATUS
+        # STATUS
         # -------------------------
         if total_paid == 0:
             purchase.payment_status = PaymentStatus.PENDING
