@@ -43,20 +43,45 @@ class PurchaseService:
 
         total_amount = total_net * Decimal(payload.price_per_kg)
 
+        paid_amount = Decimal(payload.payment.amount_paid) if payload.payment else Decimal("0")
+        pending_amount = total_amount - paid_amount
+
         return {
-            "crop": payload.crop,
-            "type": payload.type,   # ✅ INCLUDED
+            # 🔹 CUSTOMER INFO
+            "customer": {
+                "name": payload.customer_name,
+                "mobile": payload.mobile
+            },
+
+            # 🔹 PURCHASE INFO
+            "purchase": {
+                "crop": payload.crop,
+                "type": payload.type,
+                "price_per_kg": float(payload.price_per_kg),
+                "date": str(payload.purchase_date),
+                "notes": payload.notes
+            },
+
+            # 🔹 BAG DETAILS
             "bags": bags_preview,
+
+            # 🔹 TOTALS
             "totals": {
                 "total_bags": len(payload.bags),
-                "gross": float(total_gross),
-                "deduction": float(total_deduction),
-                "net": float(total_net),
+                "gross_weight": float(total_gross),
+                "total_deduction": float(total_deduction),
+                "net_weight": float(total_net),
                 "price_per_kg": float(payload.price_per_kg),
-                "amount": float(total_amount)
+                "total_amount": float(total_amount)
+            },
+
+            # 🔹 PAYMENT PREVIEW
+            "payment": {
+                "paid_amount": float(paid_amount),
+                "pending_amount": float(pending_amount),
+                "mode": payload.payment.payment_mode if payload.payment else None
             }
         }
-
     # -----------------------------
     # CREATE PURCHASE (OPTIMIZED)
     # -----------------------------
