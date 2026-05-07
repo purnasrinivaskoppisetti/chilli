@@ -68,7 +68,7 @@ class PurchaseService:
             PurchaseService.BAG_DEDUCTION
         )
 
-        final_amount = total_amount - bag_charge
+        total_amount = total_amount - bag_charge
 
         # PAYMENT
         paid_amount = (
@@ -77,7 +77,7 @@ class PurchaseService:
             else Decimal("0")
         )
 
-        pending_amount = final_amount - paid_amount
+        pending_amount = total_amount - paid_amount
 
         return {
 
@@ -112,7 +112,7 @@ class PurchaseService:
 
                 "total_amount_before_deduction": float(total_amount),
 
-                "final_amount": float(final_amount)
+                "total_amount": float(total_amount)
             },
 
             # 🔹 PAYMENT PREVIEW
