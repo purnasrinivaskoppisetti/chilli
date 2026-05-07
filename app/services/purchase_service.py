@@ -13,13 +13,10 @@ from app.models.models import (
 
 class PurchaseService:
 
-    # --------------------------------
-    # ₹40 DEDUCTION PER BAG
-    # --------------------------------
     BAG_DEDUCTION = Decimal("40")
 
     # -----------------------------
-    # PREVIEW (FAST)
+    # PREVIEW
     # -----------------------------
     @staticmethod
     async def calculate_preview(payload):
@@ -58,17 +55,18 @@ class PurchaseService:
         # -----------------------------
         total_bags = len(payload.bags)
 
-        total_amount = (
+        raw_total_amount = (
             total_net * Decimal(payload.price_per_kg)
         )
 
-        # ₹40 deduction per bag
         bag_charge = (
             Decimal(total_bags) *
             PurchaseService.BAG_DEDUCTION
         )
 
-        total_amount = total_amount - bag_charge
+        final_total_amount = (
+            raw_total_amount - bag_charge
+        )
 
         # PAYMENT
         paid_amount = (
@@ -77,17 +75,17 @@ class PurchaseService:
             else Decimal("0")
         )
 
-        pending_amount = total_amount - paid_amount
+        pending_amount = (
+            final_total_amount - paid_amount
+        )
 
         return {
 
-            # 🔹 CUSTOMER INFO
             "customer": {
                 "name": payload.customer_name,
                 "mobile": payload.mobile
             },
 
-            # 🔹 PURCHASE INFO
             "purchase": {
                 "crop": payload.crop,
                 "type": payload.type,
@@ -96,10 +94,8 @@ class PurchaseService:
                 "notes": payload.notes
             },
 
-            # 🔹 BAG DETAILS
             "bags": bags_preview,
 
-            # 🔹 TOTALS
             "totals": {
                 "total_bags": total_bags,
                 "gross_weight": float(total_gross),
@@ -107,18 +103,31 @@ class PurchaseService:
                 "net_weight": float(total_net),
                 "price_per_kg": float(payload.price_per_kg),
 
-                # NEW
                 "bag_charge": float(bag_charge),
 
-                "total_amount_before_deduction": float(total_amount),
+                # BEFORE BAG CHARGE
+                "total_amount_before_deduction": float(
+                    raw_total_amount
+                ),
 
-                "total_amount": float(total_amount)
+                # NEW KEY
+                "total_amount": float(
+                    final_total_amount
+                ),
+
+                # OLD KEY FOR FRONTEND
+                "final_total_amount": float(
+                    final_total_amount
+                )
             },
 
-            # 🔹 PAYMENT PREVIEW
             "payment": {
                 "paid_amount": float(paid_amount),
-                "pending_amount": float(pending_amount),
+
+                "pending_amount": float(
+                    pending_amount
+                ),
+
                 "mode": (
                     payload.payment.payment_mode
                     if payload.payment
@@ -128,14 +137,11 @@ class PurchaseService:
         }
 
     # -----------------------------
-    # CREATE PURCHASE (OPTIMIZED)
+    # CREATE PURCHASE
     # -----------------------------
     @staticmethod
     async def create_purchase(payload, db, user_id):
 
-        # -----------------------------
-        # CUSTOMER
-        # -----------------------------
         result = await db.execute(
             select(Customer).where(
                 Customer.mobile == payload.mobile
@@ -153,9 +159,6 @@ class PurchaseService:
             db.add(customer)
             await db.flush()
 
-        # -----------------------------
-        # PURCHASE
-        # -----------------------------
         purchase = Purchase(
             customer_id=customer.id,
             user_id=user_id,
@@ -169,9 +172,6 @@ class PurchaseService:
         db.add(purchase)
         await db.flush()
 
-        # -----------------------------
-        # CALCULATIONS
-        # -----------------------------
         total_bags = 0
         total_gross = Decimal("0")
         total_deduction = Decimal("0")
@@ -204,38 +204,27 @@ class PurchaseService:
                 )
             )
 
-        # -----------------------------
-        # TOTALS
-        # -----------------------------
         purchase.total_bags = total_bags
         purchase.gross_weight = total_gross
         purchase.total_deduction = total_deduction
         purchase.net_weight = total_net
 
-        # BEFORE BAG DEDUCTION
         raw_total_amount = (
             total_net *
             Decimal(payload.price_per_kg)
         )
 
-        # ₹40 deduction per bag
         bag_charge = (
             Decimal(total_bags) *
             PurchaseService.BAG_DEDUCTION
         )
 
-        # FINAL TOTAL
         final_total_amount = (
             raw_total_amount - bag_charge
         )
 
         purchase.total_amount = final_total_amount
 
-        total_amount = final_total_amount
-
-        # -----------------------------
-        # PAYMENT
-        # -----------------------------
         paid_amount = Decimal("0")
 
         if (
@@ -256,15 +245,12 @@ class PurchaseService:
                 )
             )
 
-        # -----------------------------
-        # PAYMENT STATUS
-        # -----------------------------
         if paid_amount == 0:
             purchase.payment_status = (
                 PaymentStatus.PENDING
             )
 
-        elif paid_amount < total_amount:
+        elif paid_amount < final_total_amount:
             purchase.payment_status = (
                 PaymentStatus.PARTIAL
             )
@@ -274,9 +260,6 @@ class PurchaseService:
                 PaymentStatus.PAID
             )
 
-        # -----------------------------
-        # INVOICE NUMBER
-        # -----------------------------
         purchase.invoice_number = (
             f"INV-{purchase.purchase_date.year}-{purchase.id:05d}"
         )
@@ -293,33 +276,40 @@ class PurchaseService:
 
             "gross_weight": float(total_gross),
 
-            "total_deduction_weight": float(total_deduction),
+            "total_deduction_weight": float(
+                total_deduction
+            ),
 
             "net_weight": float(total_net),
 
-            "price_per_kg": float(payload.price_per_kg),
+            "price_per_kg": float(
+                payload.price_per_kg
+            ),
 
             "total_amount_before_deduction": float(
                 raw_total_amount
             ),
 
-            # NEW
             "bag_charge": float(bag_charge),
 
-            "final_total_amount": float(total_amount),
+            # NEW KEY
+            "total_amount": float(
+                final_total_amount
+            ),
+
+            # OLD KEY FOR FRONTEND
+            "final_total_amount": float(
+                final_total_amount
+            ),
 
             "paid_amount": float(paid_amount),
 
             "pending_amount": float(
-                total_amount - paid_amount
+                final_total_amount - paid_amount
             ),
 
             "status": purchase.payment_status.value
         }
-
-    # -----------------------------
-    # ADD PAYMENT
-    # -----------------------------
     @staticmethod
     async def add_payment(purchase_id, payload, db):
 

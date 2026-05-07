@@ -35,9 +35,29 @@ def create_app() -> FastAPI:
 # MIDDLEWARE
 # -----------------------------
 def configure_middlewares(app: FastAPI) -> None:
+    origins = [
+
+        # LOCALHOST
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+
+        # DOMAIN
+        "https://www.ptltirumalatraders.online",
+        "https://ptltirumalatraders.online",
+
+        # SERVER IP
+        "http://187.127.163.100",
+        "http://187.127.163.100:8000",
+
+        # HTTPS API
+        "https://www.ptltirumalatraders.online/docs",
+        "https://ptltirumalatraders.online/docs"
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # change in production
+        allow_origins=origins,  # change in production
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
