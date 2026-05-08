@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 # Routers
-from app.api import auth, dashboard, purchases, customers
+from app.api import  dashboard, purchases, customers
 
 # Database
 from app.core.database import init_db
