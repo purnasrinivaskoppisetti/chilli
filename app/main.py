@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 # Routers
-from app.api import  auth,dashboard, purchases, customers
+from app.api import auth, dashboard, purchases, customers
 
 # Database
 from app.core.database import init_db
@@ -68,7 +68,7 @@ def configure_middlewares(app: FastAPI) -> None:
 # ROUTES
 # -----------------------------
 def register_routes(app: FastAPI) -> None:
-    app.include_router(dashboard.auth, prefix="/api/auth", tags=["Auth"])
+    app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
     app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
     app.include_router(purchases.router, prefix="/api/purchases", tags=["Purchases"])
     app.include_router(customers.router, prefix="/api/customers", tags=["Customers"])
